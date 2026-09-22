@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Apertura Económica y Pobreza - Sonificación</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      background-color: #f4f6f9;
+      padding: 20px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* CONTENEDOR PRINCIPAL CENTRADO */
+    #contenedor-grafico {
+      width: 90%;
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden; /* Evita cualquier desbordamiento */
+    }
+
+    /* REGLA CLAVE: Ajusta el SVG de Matplotlib al ancho de la tarjeta */
+    #contenedor-grafico svg {
+      width: 100% !important;
+      height: auto !important;
+      max-width: 100%;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Resaltar los puntos del SVG al pasar el ratón */
+    [id^="puntosonoro_"] {
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    [id^="puntosonoro_"]:hover {
+      r: 9;
+      stroke: #111;
+      stroke-width: 2.5px;
+      filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.4));
+    }
+
+    /* Etiqueta inferior de porcentaje de pobreza */
+    #etiqueta-pobreza {
+      margin-top: 20px;
+      font-size: 1.2em;
+      font-weight: 600;
+      color: #2c3e50;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #eef2f7;
+      border-radius: 8px;
+      padding: 8px 20px;
+      max-width: 500px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Apertura Económica: Impacto en la Pobreza y Desigualdad</h2>
+  <p style="color: #666; margin-bottom: 25px;">Pasa el cursor sobre los puntos de las trayectorias para escuchar la riqueza acumulada (monedas).</p>
+
+  <div id="contenedor-grafico">
+    <!-- SVG exportado de Matplotlib -->
+  </div>
+
+  <!-- Etiqueta en la parte inferior del gráfico -->
+  <div id="etiqueta-pobreza">Pasa el cursor sobre un punto para ver el porcentaje de pobreza</div>
+
+  <script>
+    // Audio Context
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioBuffer = null;
+
+    const ARCHIVO_AUDIO = 'coins_collect.mp3';
+
+    fetch(ARCHIVO_AUDIO)
+      .then(response => response.arrayBuffer())
+      .then(data => audioCtx.decodeAudioData(data))
+      .then(buffer => {
+        audioBuffer = buffer;
+      })
+      .catch(err => console.error("Error al cargar el archivo de audio:", err));
+
+    function reproducirSonidoPobreza(porcentajePobreza) {
+      if (!audioBuffer) return;
+
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      let source = audioCtx.createBufferSource();
+      let gainNode = audioCtx.createGain();
+
+      source.buffer = audioBuffer;
+
+      // 1. PITCH: Menor pobreza -> Más agudo / rápido
+      const minPitch = 0.6;
+      const maxPitch = 1.8;
+      let pitch = maxPitch - (porcentajePobreza / 100) * (maxPitch - minPitch);
+      source.playbackRate.value = Math.max(minPitch, Math.min(maxPitch, pitch));
+
+      // 2. VOLUMEN: Menor pobreza -> Más volumen (más riqueza/monedas)
+      const maxVol = 1.0;
+      const minVol = 0.08;
+      let volumen = maxVol - (porcentajePobreza / 100) * (maxVol - minVol);
+      gainNode.gain.value = Math.max(minVol, Math.min(maxVol, volumen));
+
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      source.start(0);
+    }
+
+    // Cargar e incrustar el archivo SVG
+    fetch('img/grafico_pobreza.svg')
+      .then(response => response.text())
+      .then(svgText => {
+        const contenedor = document.getElementById('contenedor-grafico');
+        contenedor.innerHTML = svgText;
+
+        // Remover dimensiones fijas de Matplotlib para asegurar responsividad
+        const svgElement = contenedor.querySelector('svg');
+        if (svgElement) {
+          svgElement.removeAttribute('width');
+          svgElement.removeAttribute('height');
+        }
+
+        const puntos = contenedor.querySelectorAll('[id^="puntosonoro_"]');
+
+        puntos.forEach(punto => {
+          punto.addEventListener('mouseenter', (e) => {
+            const parts = e.target.id.split('_');
+            const pobrezaVal = parseFloat(parts[1].split('-')[1]);
+            const paisVal = parts[2].split('-')[1];
+            const anioVal = parts[3].split('-')[1];
+
+            document.getElementById('etiqueta-pobreza').innerHTML =
+              `<strong>${paisVal} (${anioVal}):</strong>&nbsp; ${pobrezaVal.toFixed(1)}% de pobreza`;
+
+            reproducirSonidoPobreza(pobrezaVal);
+          });
+        });
+      });
+  </script>
+</body>
+</html>
