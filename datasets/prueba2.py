@@ -3,18 +3,12 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# ==========================================
-# 1. PREPARACIÓN DE DATOS
-# ==========================================
-# Datos de Pobreza y Gini (PIP)
 df_pip = pd.read_csv('pip.csv')
 df_pip = df_pip.drop_duplicates(subset=['country_name', 'reporting_year'])
 df_pip['headcount_pct'] = df_pip['headcount'] * 100
 
-# Limpieza para el logaritmo (reemplazamos ceros absolutos por 0.1 para que la gráfica no colapse)
 df_pip['headcount_pct_log'] = df_pip['headcount_pct'].clip(lower=0.1)
 
-# Eliminar anomalía pre-1989 de Costa Rica
 df_pip = df_pip[~((df_pip['country_name'] == 'Costa Rica') & (df_pip['reporting_year'] < 1989))]
 
 paises_objetivo = ['China', 'Viet Nam', 'Indonesia', 'Costa Rica', 'Panama', 'Colombia']
@@ -25,7 +19,6 @@ colores = {
     'Costa Rica': '#e10eaf', 'Panama': '#8e44ad', 'Colombia': '#d4ac0d'
 }
 
-# --- Datos de Libertad Económica (merge robusto) ---
 df_pov = pd.read_csv('share-of-population-living-in-extreme-poverty.csv')
 df_efw = pd.read_csv('efw_cc.csv')
 
@@ -35,7 +28,6 @@ df_efw.columns = df_efw.columns.str.strip()
 df_pov['Country'] = df_pov['Country'].astype(str).str.replace(r' \(urban\)', '', regex=True)
 df_efw = df_efw.rename(columns={'countries': 'Country', 'year': 'Year'})
 
-# Unificar tipos de las llaves
 for d in (df_pov, df_efw):
     d['Year'] = pd.to_numeric(d['Year'], errors='coerce')
     d.dropna(subset=['Year'], inplace=True)
@@ -59,9 +51,6 @@ if df_merged.empty:
     print("Ejemplo efw:", df_efw['Country'].unique()[:10])
 
 
-# ==========================================
-# Utilidad: los ejes log requieren log10 en las ANOTACIONES
-# ==========================================
 def L(v):
     return np.log10(v)
 
@@ -70,9 +59,7 @@ Y_TICKTEXT = ['0%', '1%', '5%', '15%', '30%', '60%', '100%']
 Y_RANGE_LOG = [L(0.06), L(130)]
 
 
-# ==========================================
-# 2. GRÁFICO 1: GINI VS POBREZA (Log)
-# ==========================================
+
 fig1 = go.Figure()
 
 for pais in paises_objetivo:
@@ -85,7 +72,6 @@ for pais in paises_objetivo:
     y_real = df_p['headcount_pct'].values
     anios = df_p['reporting_year'].astype(int).values
 
-    # Puntos (listas normales para máxima compatibilidad)
     fig1.add_trace(go.Scatter(
         x=x.tolist(), y=y_log.tolist(), mode='markers', name=pais,
         marker=dict(size=6, color=colores[pais]),
@@ -93,7 +79,6 @@ for pais in paises_objetivo:
         hovertemplate="<b>" + pais + "</b><br><br>Año: %{customdata[0]}<br><br>Gini: %{x:.3f}<br><br>Pobreza: %{customdata[1]:.2f}%<extra></extra>"
     ))
 
-    # Flechas direccionales (y en log10 porque el eje es logarítmico)
     for i in range(len(x) - 1):
         fig1.add_annotation(
             x=x[i + 1], y=L(y_log[i + 1]), ax=x[i], ay=L(y_log[i]),
@@ -101,7 +86,7 @@ for pais in paises_objetivo:
             showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=1.5, arrowcolor=colores[pais]
         )
 
-    # Año inicial y final
+
     fig1.add_annotation(x=x[0], y=L(y_log[0]), text=str(anios[0]), showarrow=False, yshift=10,
                         font=dict(color=colores[pais], size=11, family="Arial Black"))
     fig1.add_annotation(x=x[-1], y=L(y_log[-1]), text=str(anios[-1]), showarrow=False, yshift=-10,
@@ -119,9 +104,7 @@ fig1.update_layout(
     margin=dict(t=110, b=70)
 )
 
-# ==========================================
-# 3. GRÁFICO 2: CRECIMIENTO VS POBREZA (Log)
-# ==========================================
+
 fig2 = go.Figure()
 
 for pais in paises_objetivo:
@@ -165,9 +148,7 @@ fig2.update_layout(
     margin=dict(t=110, b=70)
 )
 
-# ==========================================
-# 4. GRÁFICO 3: LIBERTAD ECONÓMICA GENERAL
-# ==========================================
+
 fig3 = px.scatter(
     df_merged, x='ECONOMIC FREEDOM', y='Share below $3 a day',
     hover_name='Country',
@@ -181,12 +162,7 @@ fig3 = px.scatter(
 fig3.update_traces(marker=dict(size=7, color='#2c3e50'), selector=dict(mode='markers'))
 fig3.update_layout(height=650, showlegend=False)
 
-# ==========================================
-# 5. ENSAMBLAJE HTML
-# ==========================================
-# IMPORTANTE: el primer gráfico carga Plotly.js desde el CDN con la versión
-# que corresponde a tu librería de Python (evita el bug de los datos invisibles).
-# Los demás gráficos reutilizan esa misma carga.
+
 html_fig1 = fig1.to_html(full_html=False, include_plotlyjs='cdn')
 html_fig2 = fig2.to_html(full_html=False, include_plotlyjs=False)
 html_fig3 = fig3.to_html(full_html=False, include_plotlyjs=False)
