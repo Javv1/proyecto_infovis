@@ -228,7 +228,7 @@ html_template = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>El Libre Mercado y la Erradicación de la Pobreza</h1>
+        <h1>El Libre Mercado, la Erradicación de la Pobreza y la mentira de la igualdad</h1>
         <p class="subtitle">Análisis empírico de trayectorias nacionales</p>
 
         <div class="countries">
