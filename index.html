@@ -158,5 +158,64 @@
         });
       });
   </script>
+  <script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Inicializar el contexto de audio del navegador
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    // Función para reproducir tono sintetizado
+    function playTone(povertyValue) {
+        if (!audioCtx) {
+            audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        // Estimador de ingreso proxy (A menor pobreza, mayor ingreso)
+        // Normalización de tasa de pobreza (de 0% a 100%)
+        const incomeScore = Math.max(0, Math.min(100, 100 - povertyValue)) / 100;
+
+        // Parametrización del sonido:
+        // 1. Tono / Frecuencia: Mayor ingreso = Más agudo (300 Hz a 1800 Hz)
+        const minFreq = 300;
+        const maxFreq = 1800;
+        const frequency = minFreq + Math.pow(incomeScore, 2) * (maxFreq - minFreq);
+
+        # 2. Duración / Velocidad: Mayor ingreso = Sonido más rápido / corto (0.25s a 0.05s)
+        const duration = 0.25 - (incomeScore * 0.20);
+
+        // Crear Oscilador y Ganancia
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+        // Envolvente de volumen (ataque y caída rápida)
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // Vincular evento Hover de Plotly
+    const plotContainer = document.querySelector('.plotly-graph-div');
+    if (plotContainer) {
+        plotContainer.on('plotly_hover', function(data) {
+            if (data.points && data.points.length > 0) {
+                const point = data.points[0];
+                const povertyValue = point.y; // Valor de pobreza
+                playTone(povertyValue);
+            }
+        });
+    }
+});
+</script>
 </body>
 </html>

@@ -3,14 +3,14 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
-        <entry key="\ola\efw_cc.csv">
+        <entry key="\datasets\efw_cc.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
             </Attribute>
           </value>
         </entry>
-        <entry key="\ola\pip.csv">
+        <entry key="\datasets\pip.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
