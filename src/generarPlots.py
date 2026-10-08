@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import statsmodels.api as sm
 
 # --- 1. CARGA Y PROCESAMIENTO DE DATOS ---
-df_pip = pd.read_csv('pip.csv').drop_duplicates(
+df_pip = pd.read_csv('datasets/pip.csv').drop_duplicates(
     subset=['country_name', 'reporting_year']
 )
 df_pip['headcount_pct'] = df_pip['headcount'] * 100
@@ -38,8 +39,8 @@ colores = {
     'Colombia': '#d4ac0d',
 }
 
-df_pov = pd.read_csv('share-of-population-living-in-extreme-poverty.csv')
-df_efw = pd.read_csv('efw_cc.csv')
+df_pov = pd.read_csv('datasets/share-of-population-living-in-extreme-poverty.csv')
+df_efw = pd.read_csv('datasets/efw_cc.csv')
 df_pov.columns = df_pov.columns.str.strip()
 df_efw.columns = df_efw.columns.str.strip()
 df_pov['Country'] = (
@@ -67,47 +68,17 @@ df_merged = df_merged.dropna(
     subset=['ECONOMIC FREEDOM', 'Share below $3 a day']
 )
 
-
 def L(v):
   return np.log10(v)
-
 
 Y_TICKVALS = [0.1, 1, 5, 15, 30, 60, 100]
 Y_TICKTEXT = ['0%', '1%', '5%', '15%', '30%', '60%', '100%']
 Y_RANGE_LOG = [L(0.06), L(130)]
 
-
-# --- FUNCIÓN POST-PROCESADORA XML DE SVG ---
-def inyectar_ids_en_svg(svg_filename, datos_puntos):
-  """Asigna atributos id='puntosonoro_...' únicamente a los puntos de datos
-
-  (sin afectar las flechas de trayectoria).
-  """
-  ET.register_namespace('', 'http://www.w3.org/2000/svg')
-  tree = ET.parse(svg_filename)
-  root = tree.getroot()
-
-  idx_punto = 0
-  for elem in root.iter():
-    tag_name = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-    # Filtrar estrictamente solo los marcadores de puntos
-    if tag_name in ['path', 'circle'] and 'point' in elem.attrib.get(
-        'class', ''
-    ):
-      if idx_punto < len(datos_puntos):
-        dp = datos_puntos[idx_punto]
-        id_str = f"puntosonoro_pobreza-{dp['pobreza']:.2f}_pais-{dp['pais']}_anio-{dp['anio']}"
-        elem.set('id', id_str)
-        idx_punto += 1
-
-  tree.write(svg_filename, encoding='utf-8', xml_declaration=True)
-
-
 # ==========================================
-# GRÁFICO 1: CON FLECHAS DE TRAYECTORIA
+# GRÁFICO 1: LÍNEAS DE TRAYECTORIA
 # ==========================================
 fig1 = go.Figure()
-puntos_fig1 = []
 
 for pais in paises_objetivo:
   df_p = df_trayectorias[df_trayectorias['country_name'] == pais].dropna(
@@ -125,8 +96,9 @@ for pais in paises_objetivo:
       go.Scatter(
           x=x.tolist(),
           y=y_log.tolist(),
-          mode='markers',
+          mode='lines+markers',
           name=pais,
+          line=dict(width=1.5, color=colores[pais]),
           marker=dict(size=6, color=colores[pais]),
           customdata=np.stack((anios, y_real), axis=-1).tolist(),
           hovertemplate=(
@@ -138,25 +110,6 @@ for pais in paises_objetivo:
       )
   )
 
-  # Flechas de trayectoria
-  for i in range(len(x) - 1):
-    fig1.add_annotation(
-        x=x[i + 1],
-        y=L(y_log[i + 1]),
-        ax=x[i],
-        ay=L(y_log[i]),
-        xref='x',
-        yref='y',
-        axref='x',
-        ayref='y',
-        showarrow=True,
-        arrowhead=2,
-        arrowsize=1,
-        arrowwidth=1.5,
-        arrowcolor=colores[pais],
-    )
-
-  # Etiquetas de año inicial y final
   fig1.add_annotation(
       x=x[0],
       y=L(y_log[0]),
@@ -173,11 +126,26 @@ for pais in paises_objetivo:
       yshift=-10,
       font=dict(color=colores[pais], size=11, family='Arial Black'),
   )
+  
+  fig1.add_annotation( 
+      x=x[-1],
+      y=L(y_log[-1]),
+      text=f"<b>{pais}</b>",
+      showarrow=True,
+      arrowhead=1,
+      arrowsize=1,
+      arrowwidth=1.5,
+      arrowcolor=colores[pais],
+      ax=50,             
+      ay=0,              
+      font=dict(color=colores[pais], size=12),
+      bgcolor='white',   
+      bordercolor=colores[pais], 
+      borderwidth=2,
+      borderpad=4
+  )
 
-  for i in range(len(x)):
-    puntos_fig1.append({'pobreza': y_real[i], 'pais': pais, 'anio': anios[i]})
-
-fig1.update_layout(
+fig1.update_layout( 
     title='1. Apertura Económica: Impacto en la Pobreza Absoluta y Desigualdad',
     xaxis_title='Índice de Gini (Mayor = Más desigual)',
     yaxis_title='Población bajo la línea de pobreza extrema (%)',
@@ -186,27 +154,14 @@ fig1.update_layout(
     ),
     template='plotly_white',
     height=700,
-    showlegend=True,
-    legend=dict(
-        orientation='h',
-        yanchor='bottom',
-        y=1.02,
-        xanchor='center',
-        x=0.5,
-        title_text='',
-    ),
-    margin=dict(t=110, b=70),
+    showlegend=False,
+    margin=dict(t=80, b=70, r=80),
 )
 
-fig1.write_image('grafico_1_pobreza_desigualdad.svg', format='svg')
-inyectar_ids_en_svg('grafico_1_pobreza_desigualdad.svg', puntos_fig1)
-
-
 # ==========================================
-# GRÁFICO 2: CON FLECHAS DE TRAYECTORIA
+# GRÁFICO 2: LÍNEAS DE TRAYECTORIA
 # ==========================================
 fig2 = go.Figure()
-puntos_fig2 = []
 
 for pais in paises_objetivo:
   df_p = df_trayectorias[df_trayectorias['country_name'] == pais].dropna(
@@ -224,8 +179,9 @@ for pais in paises_objetivo:
       go.Scatter(
           x=x.tolist(),
           y=y_log.tolist(),
-          mode='markers',
+          mode='lines+markers',
           name=pais,
+          line=dict(width=1.5, color=colores[pais]),
           marker=dict(size=6, color=colores[pais]),
           customdata=np.stack((anios, y_real), axis=-1).tolist(),
           hovertemplate=(
@@ -238,25 +194,6 @@ for pais in paises_objetivo:
       )
   )
 
-  # Flechas de trayectoria
-  for i in range(len(x) - 1):
-    fig2.add_annotation(
-        x=x[i + 1],
-        y=L(y_log[i + 1]),
-        ax=x[i],
-        ay=L(y_log[i]),
-        xref='x',
-        yref='y',
-        axref='x',
-        ayref='y',
-        showarrow=True,
-        arrowhead=2,
-        arrowsize=1,
-        arrowwidth=1.5,
-        arrowcolor=colores[pais],
-    )
-
-  # Etiquetas de año inicial y final
   fig2.add_annotation(
       x=x[0],
       y=L(y_log[0]),
@@ -274,8 +211,23 @@ for pais in paises_objetivo:
       font=dict(color=colores[pais], size=11, family='Arial Black'),
   )
 
-  for i in range(len(x)):
-    puntos_fig2.append({'pobreza': y_real[i], 'pais': pais, 'anio': anios[i]})
+  fig2.add_annotation( 
+      x=x[-1],
+      y=L(y_log[-1]),
+      text=f"<b>{pais}</b>",
+      showarrow=True,
+      arrowhead=1,
+      arrowsize=1,
+      arrowwidth=1.5,
+      arrowcolor=colores[pais],
+      ax=50,             
+      ay=0,              
+      font=dict(color=colores[pais], size=12),
+      bgcolor='white',   
+      bordercolor=colores[pais], 
+      borderwidth=2,
+      borderpad=4
+  )
 
 fig2.update_layout(
     title='2. El Motor del Bienestar: Ingreso Medio vs Pobreza Extrema',
@@ -286,21 +238,9 @@ fig2.update_layout(
     ),
     template='plotly_white',
     height=700,
-    showlegend=True,
-    legend=dict(
-        orientation='h',
-        yanchor='bottom',
-        y=1.02,
-        xanchor='center',
-        x=0.5,
-        title_text='',
-    ),
-    margin=dict(t=110, b=70),
+    showlegend=False,
+    margin=dict(t=80, b=70, r=80),
 )
-
-fig2.write_image('grafico_2_ingreso_pobreza.svg', format='svg')
-inyectar_ids_en_svg('grafico_2_ingreso_pobreza.svg', puntos_fig2)
-
 
 # ==========================================
 # GRÁFICO 3: LIBERTAD ECONÓMICA
@@ -330,27 +270,200 @@ fig3.update_traces(
 )
 fig3.update_layout(height=650, showlegend=False)
 
-puntos_fig3 = []
-for _, row in df_merged.iterrows():
-  puntos_fig3.append({
-      'pobreza': row['Share below $3 a day'],
-      'pais': str(row['Country']).replace(' ', '_'),
-      'anio': row['Year'],
-  })
 
-# Reemplaza la exportación SVG y la función XML por esto:
+# ==========================================
+# GRÁFICO 4: REGRESIÓN GINI VS CRECIMIENTO
+# ==========================================
+df_wiid = pd.read_excel('datasets/WIID-08SEP2026.xlsx')
+df_clean_gini = df_wiid[['country', 'year', 'gini', 'gdp']].dropna()
 
-# Guardar Gráfico 1
-fig1.write_html(
-    'grafico_1_pobreza_desigualdad.html',
-    include_plotlyjs='cdn',  # Carga la librería Plotly desde red para ahorrar espacio
-    full_html=True,
+df_sorted_gini = df_clean_gini.sort_values('year')
+df_first_gini = df_sorted_gini.groupby('country').first().reset_index()
+df_last_gini = df_sorted_gini.groupby('country').last().reset_index()
+
+df_tendencias_gini = pd.DataFrame({
+    'country': df_first_gini['country'],
+    'crecimiento_gdp_pct': ((df_last_gini['gdp'] - df_first_gini['gdp']) / df_first_gini['gdp']) * 100,
+    'cambio_gini': df_last_gini['gini'] - df_first_gini['gini']
+}).dropna()
+
+fig4 = px.scatter(
+    df_tendencias_gini,
+    x='crecimiento_gdp_pct',
+    y='cambio_gini',
+    hover_name='country',
+    hover_data={'crecimiento_gdp_pct': ':.1f', 'cambio_gini': ':.2f'},
+    trendline='ols', 
+    trendline_color_override='#e74c3c',
+    title='4. Relación entre Crecimiento Económico y Cambio en la Desigualdad',
+    labels={
+        'crecimiento_gdp_pct': 'Crecimiento del GDP (%) entre el primer y último año',
+        'cambio_gini': 'Cambio neto en el Gini (Positivo = Más desigual)'
+    },
+    opacity=0.6,
+    template='plotly_white'
 )
 
-# Guardar Gráfico 2
-fig2.write_html('grafico_2_ingreso_pobreza.html', include_plotlyjs='cdn')
+resultados_modelo4 = px.get_trendline_results(fig4)
+if not resultados_modelo4.empty:
+    r_cuadrado4 = resultados_modelo4.iloc[0]["px_fit_results"].rsquared
+    fig4.add_annotation(
+        x=0.98, y=0.98, 
+        xref='paper', yref='paper',
+        text=f"<b>Correlación:</b><br>R² = {r_cuadrado4:.4f}",
+        showarrow=False,
+        font=dict(size=14, color="#c0392b"),
+        bgcolor="white",
+        bordercolor="#e74c3c",
+        borderwidth=2,
+        borderpad=10,
+        xanchor='right',
+        yanchor='top'
+    )
 
-# Guardar Gráfico 3
-fig3.write_html(
-    'grafico_3_libertad_economica.html', include_plotlyjs='cdn'
+fig4.update_layout(height=600, margin=dict(t=80, b=50, l=50, r=50))
+
+
+# ==========================================
+# GRÁFICO 5: REGRESIÓN INGRESO VS POBREZA
+# ==========================================
+df_clean_pov = df_pip[['country_name', 'reporting_year', 'mean', 'headcount']].dropna()
+
+df_sorted_pov = df_clean_pov.sort_values('reporting_year')
+df_first_pov = df_sorted_pov.groupby('country_name').first().reset_index()
+df_last_pov = df_sorted_pov.groupby('country_name').last().reset_index()
+
+df_tendencias_pov = pd.DataFrame({
+    'country': df_first_pov['country_name'],
+    'crecimiento_ingreso_pct': ((df_last_pov['mean'] - df_first_pov['mean']) / df_first_pov['mean']) * 100,
+    'cambio_pobreza_puntos': (df_last_pov['headcount'] - df_first_pov['headcount']) * 100 
+}).dropna()
+
+fig5 = px.scatter(
+    df_tendencias_pov,
+    x='crecimiento_ingreso_pct',
+    y='cambio_pobreza_puntos',
+    hover_name='country',
+    hover_data={'crecimiento_ingreso_pct': ':.1f', 'cambio_pobreza_puntos': ':.2f'},
+    trendline='ols', 
+    trendline_color_override='#27ae60',
+    title='5. Relación entre Crecimiento del Ingreso Medio y Cambio en la Pobreza Extrema',
+    labels={
+        'crecimiento_ingreso_pct': 'Crecimiento del Ingreso Medio (%) entre primer y último año',
+        'cambio_pobreza_puntos': 'Cambio neto en Pobreza Extrema (Puntos %, Negativo = Menos pobreza)'
+    },
+    opacity=0.6,
+    template='plotly_white'
 )
+
+resultados5 = px.get_trendline_results(fig5)
+if not resultados5.empty:
+    r_cuadrado5 = resultados5.iloc[0]["px_fit_results"].rsquared
+    fig5.add_annotation(
+        x=0.98, y=0.98, 
+        xref='paper', yref='paper',
+        text=f"<b>Correlación:</b><br>R² = {r_cuadrado5:.4f}",
+        showarrow=False,
+        font=dict(size=14, color="#2c3e50"),
+        bgcolor="white",
+        bordercolor="#27ae60",
+        borderwidth=2,
+        borderpad=10,
+        xanchor='right',
+        yanchor='top'
+    )
+
+fig5.update_layout(height=600, margin=dict(t=80, b=50, l=50, r=50))
+
+
+# --- EXPORTAR A UNA SOLA PÁGINA HTML ---
+
+html_fig1 = fig1.to_html(full_html=False, include_plotlyjs='cdn')
+html_fig2 = fig2.to_html(full_html=False, include_plotlyjs=False)
+html_fig3 = fig3.to_html(full_html=False, include_plotlyjs=False)
+html_fig4 = fig4.to_html(full_html=False, include_plotlyjs=False)
+html_fig5 = fig5.to_html(full_html=False, include_plotlyjs=False)
+
+plantilla_html = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Reporte Desigualdad vs Crecimiento</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 40px;
+            color: #333;
+        }}
+        h1 {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        .contenedor-grafico {{
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 40px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }}
+        .disclaimer {{
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+            font-size: 0.95em;
+            color: #555;
+            line-height: 1.6;
+        }}
+    </style>
+</head>
+<body>
+    <h1>Reporte: Desigualdad vs Crecimiento</h1>
+    
+    <div class="contenedor-grafico">
+        {html_fig1}
+    </div>
+    
+    <div class="contenedor-grafico">
+        {html_fig2}
+    </div>
+
+    <div class="disclaimer">
+        <p><strong>Nota sobre la visualización (Gráficos 1 y 2):</strong> El eje Y se expande a medida que desciende. Esto ocurre porque muchos países llevan bastante tiempo con poca pobreza, lo que aplanaría visualmente los gráficos dificultando su lectura. Además, refleja la dificultad real del progreso: es estadísticamente más difícil pasar de 50% a 10% de pobreza, que de 10% a 0%. Cada punto porcentual reducido en los niveles bajos requiere un esfuerzo monumental, por lo que resaltarlo visualmente aporta contexto crítico.</p>
+        <p>Los países seleccionados corresponden a modelos de apertura al mercado internacional y alta libertad económica adoptados alrededor de los años 70s-80s (época donde inicia la disponibilidad de datos de este dataset). Países como Nueva Zelanda, Dinamarca, Suecia o Alemania de posguerra siguieron modelos similares, pero sus transformaciones fueron mucho más antiguas o carecían de los datos estandarizados necesarios para esta serie temporal.</p>
+    </div>
+
+    <div class="disclaimer">
+        <p><strong>El Motor del Bienestar:</strong> En el Gráfico 2, puede parecer una obviedad que "a más ingresos, menos pobreza". Sin embargo, el propósito fundamental de esta métrica es evidenciar que una variable como el ingreso medio —el cual está correlacionado casi en un 1:1 con el crecimiento económico general— es el verdadero motor en la erradicación de la pobreza absoluta a nivel nacional.</p>
+    </div>
+    
+    <div class="contenedor-grafico">
+        {html_fig3}
+    </div>
+
+    <div class="contenedor-grafico">
+        {html_fig4}
+    </div>
+
+    <div class="contenedor-grafico">
+        {html_fig5}
+    </div>
+    
+</body>
+</html>
+"""
+
+with open('reporte_desigualdad_vs_crecimiento.html', 'w', encoding='utf-8') as archivo:
+    archivo.write(plantilla_html)
+
+print("¡Reporte completo generado con éxito! Abre 'reporte_desigualdad_vs_crecimiento.html' para ver los 5 gráficos.")
