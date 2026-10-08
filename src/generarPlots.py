@@ -438,14 +438,7 @@ plantilla_html = f"""
         {html_fig2}
     </div>
 
-    <div class="disclaimer">
-        <p><strong>Nota sobre la visualización (Gráficos 1 y 2):</strong> El eje Y se expande a medida que desciende. Esto ocurre porque muchos países llevan bastante tiempo con poca pobreza, lo que aplanaría visualmente los gráficos dificultando su lectura. Además, refleja la dificultad real del progreso: es estadísticamente más difícil pasar de 50% a 10% de pobreza, que de 10% a 0%. Cada punto porcentual reducido en los niveles bajos requiere un esfuerzo monumental, por lo que resaltarlo visualmente aporta contexto crítico.</p>
-        <p>Los países seleccionados corresponden a modelos de apertura al mercado internacional y alta libertad económica adoptados alrededor de los años 70s-80s (época donde inicia la disponibilidad de datos de este dataset). Países como Nueva Zelanda, Dinamarca, Suecia o Alemania de posguerra siguieron modelos similares, pero sus transformaciones fueron mucho más antiguas o carecían de los datos estandarizados necesarios para esta serie temporal.</p>
-    </div>
-
-    <div class="disclaimer">
-        <p><strong>El Motor del Bienestar:</strong> En el Gráfico 2, puede parecer una obviedad que "a más ingresos, menos pobreza". Sin embargo, el propósito fundamental de esta métrica es evidenciar que una variable como el ingreso medio —el cual está correlacionado casi en un 1:1 con el crecimiento económico general— es el verdadero motor en la erradicación de la pobreza absoluta a nivel nacional.</p>
-    </div>
+    
     
     <div class="contenedor-grafico">
         {html_fig3}
@@ -457,6 +450,14 @@ plantilla_html = f"""
 
     <div class="contenedor-grafico">
         {html_fig5}
+    </div>
+    <div class="disclaimer">
+        <p><strong>Nota sobre la visualización (Gráficos 1 y 2):</strong> El eje Y se expande a medida que desciende. Esto ocurre porque muchos países llevan bastante tiempo con poca pobreza, lo que aplanaría visualmente los gráficos dificultando su lectura. Además, refleja la dificultad real del progreso: es estadísticamente más difícil pasar de 50% a 10% de pobreza, que de 10% a 0%. Cada punto porcentual reducido en los niveles bajos requiere un esfuerzo monumental, por lo que resaltarlo visualmente aporta contexto crítico.</p>
+        <p>Los países seleccionados corresponden a modelos de apertura al mercado internacional y alta libertad económica adoptados alrededor de los años 70s-80s (época donde inicia la disponibilidad de datos de este dataset). Países como Nueva Zelanda, Dinamarca, Suecia o Alemania de posguerra siguieron modelos similares, pero sus transformaciones fueron mucho más antiguas o carecían de los datos estandarizados necesarios para esta serie temporal.</p>
+    </div>
+
+    <div class="disclaimer">
+        <p><strong>El Motor del Bienestar:</strong> En el Gráfico 2 y 5, puede parecer una obviedad que "a más ingresos, menos pobreza". Sin embargo, el propósito fundamental de esta métrica es evidenciar que una variable como el ingreso medio —el cual está correlacionado casi en un 1:1 con el crecimiento económico general— es el verdadero motor en la erradicación de la pobreza absoluta a nivel nacional.</p>
     </div>
     
 </body>
